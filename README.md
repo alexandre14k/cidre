@@ -1,6 +1,8 @@
 # cidre
 Extracts CIDR ranges from RIPE
 
+![Visitors](https://api.visitorbadge.io/api/VisitorHit?user=alexandre14k&repo=https://github.com/alexandre14k/cidre&label=Views&labelColor=%23555555&countColor=%23007EC6)
+
 # requirements
 - curl
 - jq
