@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+
+set -u
+
+# alexandre raduly <alexander14k28@gmail.com>
+# update 05 oct 2026
+# license AGPL-3.0
+
+show_menu() {
+    echo "==> cidre extracts CIDR ranges from RIPE"
+    echo
+    echo "n -- new"
+    echo "c -- clear"
+    echo "h -- help"
+    echo "x -- exit"
+    echo
+}
+
+is_ip() {
+    [[ "$1" == *:* || "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
+}
+
+lookup() {
+    local ip="$1"
+    local json
+    local prefix
+
+    json=$(
+        curl -fsS \
+            --max-time 10 \
+            -A "cidre/1.0" \
+            --get \
+            --data-urlencode "resource=$ip" \
+            "https://stat.ripe.net/data/network-info/data.json" \
+        2>/dev/null
+    )
+
+    if [[ -z "$json" ]]; then
+        echo "lookup failed"
+        return
+    fi
+
+    prefix=$(jq -r '.data.prefix // empty' <<< "$json")
+
+    echo
+    echo "host: $ip"
+    echo
+    echo "range:"
+
+    if [[ -n "$prefix" ]]; then
+        echo "- $prefix"
+    else
+        if [[ "$ip" == *:* ]]; then
+            echo "- $ip/128"
+        else
+            echo "- $ip/32"
+        fi
+    fi
+
+    echo
+}
+
+query_domain() {
+    local domain="$1"
+    local ips
+
+    ips=$(
+        nslookup "$domain" 2>/dev/null |
+        awk '/^Address: / { print $2 }'
+    )
+
+    if [[ -z "$ips" ]]; then
+        echo
+        echo "host not found: $domain"
+        echo
+        return
+    fi
+
+    while IFS= read -r ip; do
+        [[ -z "$ip" ]] && continue
+
+        if is_ip "$ip"; then
+            lookup "$ip"
+        fi
+    done <<< "$ips"
+}
+
+query_mode() {
+    while true; do
+        read -r -p "host> " ip
+
+        [[ -z "$ip" ]] && return
+
+        if is_ip "$ip"; then
+            lookup "$ip"
+        else
+            query_domain "$ip"
+        fi
+    done
+}
+
+show_menu
+
+while true; do
+    read -r -p "> " choice
+    case "$choice" in
+        n)  query_mode;;
+        c)  clear ;;
+        h)  show_menu;;
+        x)  exit 0 ;;
+        *)  ;;
+    esac
+done
